@@ -1,0 +1,25 @@
+# Archivos de configuración con credenciales
+*.xml
+!example-*.xml
+
+# Logs
+*.log
+logs/
+
+# Backups
+*.backup
+*.bak
+
+# Archivos temporales
+*.tmp
+*.swp
+*~
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
