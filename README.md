@@ -14,7 +14,8 @@ Documentación completa para la instrumentación del agente de AppDynamics en IB
 
 ## 📖 Documentación Completa
 
-Para instrucciones detalladas paso a paso, consulta [INSTRUMENTACION.md](INSTRUMENTACION.md).
+- [INSTRUMENTACION.md](INSTRUMENTACION.md) - Guía detallada paso a paso
+- [DIAGNOSTICO_AGENTE_NO_CARGA.md](DIAGNOSTICO_AGENTE_NO_CARGA.md) - **Diagnóstico si el agente no se carga** (no hay logs ni registro en Controller)
 
 ## 🚀 Inicio Rápido
 
@@ -209,21 +210,18 @@ else
 fi
 ```
 
-**IMPORTANTE: Dar permisos de ejecución al script:**
+**⚠️ IMPORTANTE: Asignar permisos de ejecución al script:**
 
 ```bash
-# Crear el script (si no existe)
-# ... (copiar el contenido del script arriba)
-
-# Dar permisos de ejecución
+# Asignar permisos de ejecución
 chmod +x /opt/appdynamics/ace_instrumentation.sh
 
 # Verificar permisos
 ls -l /opt/appdynamics/ace_instrumentation.sh
-# Debe mostrar: -rwxr-xr-x (permisos de ejecución)
+# Debe mostrar: -rwxr-xr-x (permisos de ejecución activos)
 
 # Asegurar que el propietario es correcto
-chown ace_user:ace_group /opt/appdynamics/ace_instrumentation.sh
+chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/ace_instrumentation.sh
 ```
 
 Agregar al inicio del script de ACE:
@@ -329,6 +327,34 @@ curl -v http://<controller-host>:<controller-port>/controller/rest/applications
 chown -R ace_user:ace_group /opt/appdynamics
 chmod -R 755 /opt/appdynamics
 chmod 644 /opt/appdynamics/AppServerAgent/conf/controller-info.xml
+
+# ⚠️ IMPORTANTE: Permisos de ejecución para scripts
+chmod +x /opt/appdynamics/ace_instrumentation.sh  # Si se usa script separado
+```
+
+### Permisos de Ejecución para Scripts
+
+**Script de instrumentación (`ace_instrumentation.sh`):**
+
+```bash
+# Asignar permisos de ejecución
+chmod +x /opt/appdynamics/ace_instrumentation.sh
+
+# Verificar permisos
+ls -l /opt/appdynamics/ace_instrumentation.sh
+# Debe mostrar: -rwxr-xr-x o similar (x = ejecutable)
+```
+
+**Script mqsiprofile de IBM ACE:**
+
+El script `mqsiprofile` de IBM ACE normalmente ya tiene permisos de ejecución. Si necesitas verificarlos:
+
+```bash
+# Verificar permisos del mqsiprofile
+ls -l <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# Si no tiene permisos de ejecución, asignarlos:
+chmod +x <ACE_INSTALL_DIR>/server/bin/mqsiprofile
 ```
 
 ### Permisos de Ejecución

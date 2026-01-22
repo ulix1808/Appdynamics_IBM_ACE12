@@ -118,6 +118,9 @@ ls -la javaagent.jar
 # Si es necesario, ajustar permisos:
 sudo chown -R <ACE_USER>:<ACE_GROUP> /opt/appdynamics
 sudo chmod -R 755 /opt/appdynamics
+
+# ⚠️ IMPORTANTE: Si se usa script de instrumentación separado, verificar permisos de ejecución
+# (Esto se hará más adelante cuando se cree el script)
 ```
 
 ---
@@ -301,10 +304,10 @@ export APP_AGENT_DIR
 export APP_AGENT_JAVA_OPTS
 ```
 
-**Hacer ejecutable (IMPORTANTE):**
+**⚠️ IMPORTANTE: Asignar permisos de ejecución al script:**
 
 ```bash
-# Dar permisos de ejecución al script
+# Asignar permisos de ejecución
 chmod +x /opt/appdynamics/ace_instrumentation.sh
 
 # Verificar que los permisos se aplicaron correctamente
@@ -318,7 +321,7 @@ chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/ace_instrumentation.sh
 ls -l /opt/appdynamics/ace_instrumentation.sh
 ```
 
-**Nota:** Sin permisos de ejecución, el script no podrá ser ejecutado por `source` o directamente, lo que causará errores al iniciar ACE.
+**Nota:** Sin permisos de ejecución, el script no podrá ser ejecutado por `source` o directamente, lo que causará errores al iniciar ACE. Si el script no tiene permisos de ejecución, no se podrá cargar y la instrumentación fallará.
 
 **Modificar mqsiprofile para cargar el script:**
 
@@ -422,34 +425,213 @@ curl -v http://<controller-host>:<controller-port>/controller/rest/applications
 
 ## Troubleshooting Detallado
 
-### Problema 1: El agente no se carga
+> **⚠️ PROBLEMA ESPECÍFICO: Agente no se carga (sin logs ni registro en Controller)**  
+> Si el agente no genera logs y no aparece en el Controller después de reiniciar, consulta la guía detallada:  
+> **[DIAGNOSTICO_AGENTE_NO_CARGA.md](DIAGNOSTICO_AGENTE_NO_CARGA.md)**
+
+### Problema 1: El agente no se carga (NO HAY LOGS NI REGISTRO EN CONTROLLER)
 
 **Síntomas:**
 - No hay mensajes de AppDynamics en los logs
 - El nodo no aparece en el Controller
+- **No se crean archivos de log en `/opt/appdynamics/AppServerAgent/logs/`**
+- El agente parece no estar ejecutándose
 
-**Diagnóstico:**
+**🔍 Diagnóstico Paso a Paso:**
+
+#### Paso 1: Verificar que el archivo javaagent.jar existe
 
 ```bash
-# 1. Verificar que el archivo existe
+# Verificar existencia y permisos del archivo
 ls -la /opt/appdynamics/AppServerAgent/javaagent.jar
 
-# 2. Verificar permisos
-ls -l /opt/appdynamics/AppServerAgent/javaagent.jar
-
-# 3. Verificar que JAVA_OPTS está configurado
-# Ejecutar: mqsiprofile
-# Luego: echo $JAVA_OPTS
-
-# 4. Verificar logs del agente
-cat /opt/appdynamics/AppServerAgent/logs/agent.log
+# Debe mostrar el archivo con permisos de lectura
+# Si no existe, verificar la ruta de instalación
 ```
 
-**Soluciones:**
-1. Verificar ruta del `javaagent.jar` en el script
-2. Ajustar permisos: `chmod 644 javaagent.jar`
-3. Verificar que `mqsiprofile` se ejecuta antes de iniciar ACE
-4. Revisar logs completos: `tail -100 /opt/appdynamics/AppServerAgent/logs/agent.log`
+#### Paso 2: Verificar configuración en mqsiprofile
+
+```bash
+# Verificar que se agregó la configuración al mqsiprofile
+grep -i "appdynamics\|javaagent" <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# Debe mostrar las líneas de configuración que agregaste
+# Si no aparece nada, la configuración no se guardó correctamente
+```
+
+**Si no aparece nada, verificar:**
+- ¿Se editó el archivo correcto? (verificar ruta completa)
+- ¿Se guardaron los cambios? (verificar con `tail -20` del archivo)
+- ¿Hay múltiples archivos mqsiprofile? (verificar todas las ubicaciones)
+
+#### Paso 3: Verificar que JAVA_OPTS se configura al cargar mqsiprofile
+
+```bash
+# Cargar el mqsiprofile manualmente
+source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# Verificar que JAVA_OPTS contiene el javaagent
+echo $JAVA_OPTS | grep -i "javaagent\|appdynamics"
+
+# Debe mostrar algo como:
+# -javaagent:/opt/appdynamics/AppServerAgent/javaagent.jar
+```
+
+**Si no aparece el javaagent en JAVA_OPTS:**
+- La configuración en mqsiprofile no se está ejecutando
+- Verificar sintaxis del script (puede haber errores de sintaxis)
+- Verificar que no hay errores al cargar mqsiprofile
+
+#### Paso 4: Verificar cómo se inicia el broker ACE
+
+```bash
+# Verificar el proceso de inicio del broker
+ps aux | grep -i "mqsi\|ace\|broker" | grep -v grep
+
+# Verificar las variables de entorno del proceso Java
+# (Esto requiere acceso al proceso en ejecución)
+```
+
+**⚠️ PROBLEMA COMÚN:** IBM ACE puede iniciar el proceso Java de una manera que no carga el mqsiprofile automáticamente.
+
+#### Paso 5: Verificar logs de inicio del broker
+
+```bash
+# Buscar en los logs de inicio del broker
+grep -i "java\|jvm\|start" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log | head -50
+
+# Buscar errores relacionados con javaagent
+grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+```
+
+#### Paso 6: Verificar que el directorio de logs del agente existe y tiene permisos
+
+```bash
+# Verificar directorio de logs
+ls -ld /opt/appdynamics/AppServerAgent/logs
+
+# Si no existe, crearlo:
+mkdir -p /opt/appdynamics/AppServerAgent/logs
+chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/AppServerAgent/logs
+chmod 775 /opt/appdynamics/AppServerAgent/logs
+```
+
+**Soluciones Detalladas:**
+
+**Solución 1: Verificar y corregir mqsiprofile**
+
+```bash
+# 1. Hacer backup
+cp <ACE_INSTALL_DIR>/server/bin/mqsiprofile <ACE_INSTALL_DIR>/server/bin/mqsiprofile.backup.$(date +%Y%m%d)
+
+# 2. Verificar contenido actual
+cat <ACE_INSTALL_DIR>/server/bin/mqsiprofile | tail -30
+
+# 3. Agregar configuración al FINAL del archivo (no al inicio)
+# Asegurar que está al final, después de todas las otras configuraciones
+cat >> <ACE_INSTALL_DIR>/server/bin/mqsiprofile << 'EOF'
+
+# =========================================
+# AppDynamics Java Agent Configuration
+# =========================================
+APP_AGENT_DIR="/opt/appdynamics/AppServerAgent"
+APP_AGENT_JAR="${APP_AGENT_DIR}/javaagent.jar"
+
+if [ -f "${APP_AGENT_JAR}" ]; then
+    export APP_AGENT_JAVA_OPTS="-javaagent:${APP_AGENT_JAR}"
+    export JAVA_OPTS="${JAVA_OPTS} ${APP_AGENT_JAVA_OPTS}"
+    echo "[AppDynamics] Agent configurado: ${APP_AGENT_JAR}"
+else
+    echo "[AppDynamics] WARNING: Agent no encontrado en ${APP_AGENT_JAR}"
+fi
+EOF
+
+# 4. Verificar que se agregó correctamente
+tail -15 <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# 5. Probar cargar manualmente
+source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+echo $JAVA_OPTS | grep javaagent
+```
+
+**Solución 2: Verificar método de inicio del broker**
+
+IBM ACE puede iniciar el broker de diferentes maneras. Verificar cómo se está iniciando:
+
+```bash
+# Verificar si hay un script de inicio personalizado
+ls -la <ACE_INSTALL_DIR>/server/bin/mqsistart*
+
+# Verificar si se usa systemd, init.d, o script manual
+# Si se usa systemd, puede que necesites configurar las variables ahí
+```
+
+**Solución 3: Configurar variables en el script de inicio del broker**
+
+Si el mqsiprofile no se carga automáticamente, agregar las variables directamente en el script de inicio:
+
+```bash
+# Localizar el script que inicia el broker
+# Puede estar en: <ACE_INSTALL_DIR>/server/bin/mqsistart
+# O en un script personalizado
+
+# Agregar ANTES de iniciar el proceso Java:
+export JAVA_OPTS="${JAVA_OPTS} -javaagent:/opt/appdynamics/AppServerAgent/javaagent.jar"
+```
+
+**Solución 4: Verificar permisos y rutas**
+
+```bash
+# Verificar permisos completos
+sudo chown -R <ACE_USER>:<ACE_GROUP> /opt/appdynamics
+sudo chmod -R 755 /opt/appdynamics
+sudo chmod 644 /opt/appdynamics/AppServerAgent/javaagent.jar
+
+# Verificar que la ruta es absoluta (no relativa)
+# La ruta debe ser: /opt/appdynamics/AppServerAgent/javaagent.jar
+# NO debe ser: ./AppServerAgent/javaagent.jar o ~/appdynamics/...
+```
+
+**Solución 5: Probar carga manual del agente**
+
+Para verificar que el agente funciona, probar cargarlo manualmente:
+
+```bash
+# 1. Detener el broker
+mqsi stop <BROKER_NAME>
+
+# 2. Cargar mqsiprofile
+source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# 3. Verificar JAVA_OPTS
+echo $JAVA_OPTS
+
+# 4. Iniciar el broker desde la misma sesión
+mqsi start <BROKER_NAME>
+
+# 5. Inmediatamente verificar logs
+tail -f /opt/appdynamics/AppServerAgent/logs/agent.log
+```
+
+**Solución 6: Verificar sintaxis del script**
+
+```bash
+# Verificar que no hay errores de sintaxis en mqsiprofile
+bash -n <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# Si hay errores, corregirlos antes de reiniciar
+```
+
+**Checklist de Verificación:**
+
+- [ ] El archivo `javaagent.jar` existe en la ruta especificada
+- [ ] Los permisos del archivo y directorio son correctos
+- [ ] La configuración está agregada al `mqsiprofile`
+- [ ] Al cargar `mqsiprofile` manualmente, `JAVA_OPTS` contiene el javaagent
+- [ ] El directorio de logs existe y tiene permisos de escritura
+- [ ] No hay errores de sintaxis en el `mqsiprofile`
+- [ ] El broker se reinició DESPUÉS de modificar el `mqsiprofile`
+- [ ] Se está usando el método correcto para iniciar el broker
 
 ### Problema 2: No se conecta al Controller
 
@@ -497,28 +679,38 @@ ERROR: SSL handshake failed
 - Errores "Permission denied" al iniciar ACE
 - Errores al escribir logs
 - Errores "cannot execute binary file" o "Permission denied" al ejecutar scripts
+- Mensajes "Permission denied" al ejecutar scripts
+- El script de instrumentación no se carga
 
 **Soluciones:**
 
 ```bash
-# Verificar y ajustar permisos del directorio
+# Verificar y ajustar permisos de archivos y directorios
 sudo chown -R <ACE_USER>:<ACE_GROUP> /opt/appdynamics
 sudo chmod -R 755 /opt/appdynamics
 sudo chmod 644 /opt/appdynamics/AppServerAgent/conf/controller-info.xml
+
+# ⚠️ IMPORTANTE: Asegurar permisos de ejecución para scripts
+sudo chmod +x /opt/appdynamics/ace_instrumentation.sh  # Si se usa script separado
+
+# Verificar permisos de ejecución
+ls -l /opt/appdynamics/ace_instrumentation.sh
+# Debe mostrar permisos de ejecución (x): -rwxr-xr-x
 
 # Asegurar permisos de escritura para logs
 sudo chmod 775 /opt/appdynamics/AppServerAgent/logs
 sudo chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/AppServerAgent/logs
 
+<<<<<<< HEAD
 # IMPORTANTE: Verificar permisos de ejecución en scripts
 # Si usa script de instrumentación personalizado:
 chmod +x /opt/appdynamics/ace_instrumentation.sh
 chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/ace_instrumentation.sh
 
-# Verificar permisos de mqsiprofile
+# Verificar permisos del mqsiprofile (si se modificó)
 ls -l <ACE_INSTALL_DIR>/server/bin/mqsiprofile
 # Si no tiene permisos de ejecución:
-chmod +x <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+sudo chmod +x <ACE_INSTALL_DIR>/server/bin/mqsiprofile
 
 # Verificar que el usuario puede ejecutar los scripts
 sudo -u <ACE_USER> /opt/appdynamics/ace_instrumentation.sh
@@ -584,7 +776,7 @@ Antes de instrumentar en producción, verificar:
 - [ ] Directorio de instalación creado (`/opt/appdynamics`)
 - [ ] Agente Java descargado y extraído
 - [ ] Permisos de archivos configurados
-- [ ] **Permisos de ejecución configurados en scripts** (chmod +x)
+- [ ] **Permisos de ejecución asignados a scripts** (`chmod +x`)
 - [ ] Backup de configuración de ACE realizado
 
 ### Configuración
