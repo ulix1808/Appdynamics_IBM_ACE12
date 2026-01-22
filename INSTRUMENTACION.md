@@ -301,11 +301,24 @@ export APP_AGENT_DIR
 export APP_AGENT_JAVA_OPTS
 ```
 
-**Hacer ejecutable:**
+**Hacer ejecutable (IMPORTANTE):**
 
 ```bash
+# Dar permisos de ejecución al script
 chmod +x /opt/appdynamics/ace_instrumentation.sh
+
+# Verificar que los permisos se aplicaron correctamente
+ls -l /opt/appdynamics/ace_instrumentation.sh
+# Debe mostrar: -rwxr-xr-x (permisos de ejecución activos)
+
+# Asegurar que el propietario es correcto
+chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/ace_instrumentation.sh
+
+# Verificar permisos finales
+ls -l /opt/appdynamics/ace_instrumentation.sh
 ```
+
+**Nota:** Sin permisos de ejecución, el script no podrá ser ejecutado por `source` o directamente, lo que causará errores al iniciar ACE.
 
 **Modificar mqsiprofile para cargar el script:**
 
@@ -483,11 +496,12 @@ ERROR: SSL handshake failed
 **Síntomas:**
 - Errores "Permission denied" al iniciar ACE
 - Errores al escribir logs
+- Errores "cannot execute binary file" o "Permission denied" al ejecutar scripts
 
 **Soluciones:**
 
 ```bash
-# Verificar y ajustar permisos
+# Verificar y ajustar permisos del directorio
 sudo chown -R <ACE_USER>:<ACE_GROUP> /opt/appdynamics
 sudo chmod -R 755 /opt/appdynamics
 sudo chmod 644 /opt/appdynamics/AppServerAgent/conf/controller-info.xml
@@ -495,6 +509,20 @@ sudo chmod 644 /opt/appdynamics/AppServerAgent/conf/controller-info.xml
 # Asegurar permisos de escritura para logs
 sudo chmod 775 /opt/appdynamics/AppServerAgent/logs
 sudo chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/AppServerAgent/logs
+
+# IMPORTANTE: Verificar permisos de ejecución en scripts
+# Si usa script de instrumentación personalizado:
+chmod +x /opt/appdynamics/ace_instrumentation.sh
+chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/ace_instrumentation.sh
+
+# Verificar permisos de mqsiprofile
+ls -l <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+# Si no tiene permisos de ejecución:
+chmod +x <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# Verificar que el usuario puede ejecutar los scripts
+sudo -u <ACE_USER> /opt/appdynamics/ace_instrumentation.sh
+# No debe dar error de permisos
 ```
 
 ### Problema 4: Conflictos con otras librerías
@@ -556,6 +584,7 @@ Antes de instrumentar en producción, verificar:
 - [ ] Directorio de instalación creado (`/opt/appdynamics`)
 - [ ] Agente Java descargado y extraído
 - [ ] Permisos de archivos configurados
+- [ ] **Permisos de ejecución configurados en scripts** (chmod +x)
 - [ ] Backup de configuración de ACE realizado
 
 ### Configuración

@@ -209,6 +209,23 @@ else
 fi
 ```
 
+**IMPORTANTE: Dar permisos de ejecución al script:**
+
+```bash
+# Crear el script (si no existe)
+# ... (copiar el contenido del script arriba)
+
+# Dar permisos de ejecución
+chmod +x /opt/appdynamics/ace_instrumentation.sh
+
+# Verificar permisos
+ls -l /opt/appdynamics/ace_instrumentation.sh
+# Debe mostrar: -rwxr-xr-x (permisos de ejecución)
+
+# Asegurar que el propietario es correcto
+chown ace_user:ace_group /opt/appdynamics/ace_instrumentation.sh
+```
+
 Agregar al inicio del script de ACE:
 
 ```bash
@@ -314,12 +331,84 @@ chmod -R 755 /opt/appdynamics
 chmod 644 /opt/appdynamics/AppServerAgent/conf/controller-info.xml
 ```
 
+### Permisos de Ejecución
+
+**Importante:** Los scripts de instrumentación y archivos ejecutables necesitan permisos de ejecución para funcionar correctamente.
+
+#### Scripts de Instrumentación
+
+Si utiliza un script de instrumentación personalizado (como `ace_instrumentation.sh`), debe tener permisos de ejecución:
+
+```bash
+# Dar permisos de ejecución al script
+chmod +x /opt/appdynamics/ace_instrumentation.sh
+
+# Verificar permisos
+ls -l /opt/appdynamics/ace_instrumentation.sh
+# Debe mostrar: -rwxr-xr-x (permisos de ejecución activos)
+```
+
+#### Archivo mqsiprofile
+
+El archivo `mqsiprofile` debe tener permisos de ejecución para que ACE pueda cargarlo:
+
+```bash
+# Verificar permisos del mqsiprofile
+ls -l <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+
+# Si no tiene permisos de ejecución, agregarlos:
+chmod +x <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+```
+
+**Nota:** Normalmente `mqsiprofile` ya tiene permisos de ejecución por defecto, pero es importante verificarlo.
+
+#### Verificación de Permisos de Ejecución
+
+Para verificar que todos los scripts necesarios tienen permisos de ejecución:
+
+```bash
+# Verificar script de instrumentación (si existe)
+if [ -f "/opt/appdynamics/ace_instrumentation.sh" ]; then
+    ls -l /opt/appdynamics/ace_instrumentation.sh
+    # Debe mostrar 'x' en los permisos: -rwxr-xr-x
+fi
+
+# Verificar mqsiprofile
+ls -l <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+# Debe mostrar permisos de ejecución
+
+# Verificar otros scripts relacionados
+ls -l <ACE_INSTALL_DIR>/server/bin/mqsistart
+ls -l <ACE_INSTALL_DIR>/server/bin/mqsistop
+```
+
+#### Solución de Problemas de Permisos de Ejecución
+
+Si encuentra errores como "Permission denied" o "cannot execute binary file":
+
+```bash
+# 1. Verificar permisos actuales
+ls -l /opt/appdynamics/ace_instrumentation.sh
+
+# 2. Agregar permisos de ejecución
+chmod +x /opt/appdynamics/ace_instrumentation.sh
+
+# 3. Verificar que el usuario tiene permisos
+# El usuario que ejecuta ACE debe tener permisos de lectura y ejecución
+chown ace_user:ace_group /opt/appdynamics/ace_instrumentation.sh
+chmod 755 /opt/appdynamics/ace_instrumentation.sh
+
+# 4. Verificar que el script es ejecutable por el grupo y otros (si aplica)
+# 755 = rwxr-xr-x (propietario: lectura/escritura/ejecución, grupo y otros: lectura/ejecución)
+```
+
 ### Permisos en IBM ACE
 
 El usuario que ejecuta ACE debe tener:
 - Permisos para iniciar/detener el servidor
 - Acceso de lectura al directorio del agente
 - Acceso de escritura para logs del agente
+- Permisos de ejecución para scripts de instrumentación (si se usan)
 
 ### Permisos de Red
 
