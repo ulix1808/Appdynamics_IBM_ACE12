@@ -2,6 +2,23 @@
 
 **Problema:** Después de reiniciar el BUS, no hay logs en la carpeta del agente y no aparece registrado en el Controller.
 
+## ⚠️ Síntoma Crítico: Comando de Verificación No Devuelve Nada
+
+Si ejecutaste este comando y **NO devuelve nada**:
+
+```bash
+grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+```
+
+**Esto significa:**
+- ✅ El agente **NO se está cargando** en absoluto
+- ✅ El proceso Java del broker **NO tiene** el parámetro `-javaagent` configurado
+- ✅ `JAVA_OPTS` **NO se está configurando** correctamente al iniciar el broker
+
+**Acción inmediata:** Ir directamente al **Paso 3** (verificar que JAVA_OPTS se configura) y luego al **Paso 2** (verificar mqsiprofile).
+
+---
+
 ## 🔍 Diagnóstico Rápido (Ejecutar en Orden)
 
 ### Paso 1: Verificar que el archivo javaagent.jar existe
@@ -115,18 +132,69 @@ ls -la /etc/systemd/system/*ace* 2>/dev/null
 ### Paso 7: Verificar logs de inicio del broker
 
 ```bash
-# Buscar en logs de inicio
+# ⚠️ IMPORTANTE: Usar grep directamente (más eficiente que cat con wildcards)
+# Buscar cualquier referencia a javaagent o appdynamics en logs del broker
+grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+
+# Si el comando anterior no devuelve nada, probar:
+# 1. Verificar que los archivos de log existen
+ls -la <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+
+# 2. Buscar en todos los logs (incluyendo subdirectorios)
+find <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs -name "*.log" -exec grep -i "javaagent\|appdynamics" {} \;
+
+# 3. Ver los últimos logs de inicio del broker
 grep -i "java\|jvm\|start" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log | tail -50
 
-# Buscar cualquier referencia a javaagent o appdynamics
-grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+# 4. Verificar logs del sistema (si están disponibles)
+tail -100 <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log 2>/dev/null | grep -i "java\|jvm"
 ```
 
-**Si no hay referencias:** El agente definitivamente no se está cargando.
+**⚠️ Si NO hay referencias a AppDynamics en los logs:**
+- **El agente definitivamente NO se está cargando**
+- El proceso Java no está recibiendo el parámetro `-javaagent`
+- Esto confirma que `JAVA_OPTS` no se está configurando correctamente
+- **Acción:** Volver al Paso 3 y verificar que `JAVA_OPTS` se configura al cargar `mqsiprofile`
 
 ---
 
 ## 🔧 Soluciones Comunes
+
+### ⚠️ Solución 0: Si el comando de verificación NO devuelve nada
+
+**Síntoma:** Este comando no devuelve ningún resultado:
+```bash
+grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+```
+
+**Diagnóstico:**
+- El agente **NO se está cargando** en absoluto
+- El proceso Java del broker **NO tiene** el parámetro `-javaagent`
+- Esto significa que `JAVA_OPTS` no se está configurando al iniciar el broker
+
+**Pasos inmediatos:**
+
+1. **Verificar que mqsiprofile tiene la configuración:**
+   ```bash
+   grep -i "appdynamics\|javaagent" <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+   ```
+   Si no aparece nada → Ir a Solución 1
+
+2. **Verificar que JAVA_OPTS se configura al cargar mqsiprofile:**
+   ```bash
+   source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+   echo $JAVA_OPTS | grep javaagent
+   ```
+   Si no aparece → El mqsiprofile tiene un error o la configuración está mal
+
+3. **Verificar cómo se inicia el broker:**
+   - ¿Se carga el mqsiprofile automáticamente?
+   - ¿Hay un script de inicio personalizado?
+   - ¿Se usa systemd o init.d?
+
+**Solución:** Seguir con Solución 1 y Solución 3.
+
+---
 
 ### Solución 1: Corregir configuración en mqsiprofile
 
@@ -304,18 +372,26 @@ Si después de seguir todos los pasos el agente aún no se carga:
 ## 📝 Comandos de Verificación Rápida (Copy-Paste)
 
 ```bash
-# Verificar archivo
+# 1. Verificar archivo javaagent.jar
 ls -la /opt/appdynamics/AppServerAgent/javaagent.jar
 
-# Verificar configuración
+# 2. Verificar configuración en mqsiprofile
 grep -i "appdynamics\|javaagent" <ACE_INSTALL_DIR>/server/bin/mqsiprofile
 
-# Verificar JAVA_OPTS
+# 3. Verificar JAVA_OPTS (cargar mqsiprofile primero)
 source <ACE_INSTALL_DIR>/server/bin/mqsiprofile && echo $JAVA_OPTS | grep javaagent
 
-# Verificar logs
+# 4. Verificar logs del agente AppDynamics
 ls -la /opt/appdynamics/AppServerAgent/logs/
-tail -50 /opt/appdynamics/AppServerAgent/logs/agent.log 2>/dev/null || echo "No hay logs aún"
+tail -50 /opt/appdynamics/AppServerAgent/logs/agent.log 2>/dev/null || echo "⚠️ No hay logs aún - el agente no se está cargando"
+
+# 5. ⚠️ CRÍTICO: Buscar referencias a AppDynamics en logs del broker
+grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+
+# Si el comando anterior NO devuelve nada:
+# → El agente NO se está cargando
+# → JAVA_OPTS no se está configurando correctamente
+# → Verificar Paso 2 y Paso 3 del diagnóstico
 ```
 
 ---
