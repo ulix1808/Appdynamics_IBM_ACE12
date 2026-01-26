@@ -159,15 +159,29 @@ mqsi status <BROKER_NAME>
 
 Hay dos métodos para instalar el user exit:
 
-#### Método 1: Usando mqsichangebroker (Recomendado para IIB 10, ACE 11, ACE 12)
+#### Método 1: Usando mqsichangebroker o mqsichangeproperties
 
+**⚠️ NOTA:** En algunas versiones de ACE 12, `mqsichangebroker` está deprecado. Si recibes el error `BIP8101E`, usar `mqsichangeproperties`.
+
+**Opción A: mqsichangebroker (si está disponible)**
 ```bash
 mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
 ```
 
+**Opción B: mqsichangeproperties (cuando mqsichangebroker está deprecado)**
+```bash
+mqsichangeproperties <BROKER_NAME> -n userExitPath -v <INSTALL_DIRECTORY>
+mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v <USER_EXIT_NAME>
+```
+
 **Ejemplo:**
 ```bash
+# Si mqsichangebroker funciona:
 mqsichangebroker BRKR_PROD -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+
+# Si mqsichangebroker está deprecado:
+mqsichangeproperties BRURALBRKQA -n userExitPath -v /opt/appdynamics/iib-agent
+mqsichangeproperties BRURALBRKQA -n activeUserExitList -v AppDynamicsExit
 ```
 
 #### Método 2: Usando node.conf.yaml (ACE 11, ACE 12)

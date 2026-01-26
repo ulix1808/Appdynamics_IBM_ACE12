@@ -239,9 +239,16 @@ mqsi status <BROKER_NAME>
 
 Hay dos métodos para instalar el user exit, dependiendo de la versión de ACE:
 
-#### Método 1: Usando mqsichangebroker (IIB 10, ACE 11, ACE 12)
+#### Método 1: Usando mqsichangebroker o mqsichangeproperties
 
-Instalar el agente AppDynamics como user exit en el broker:
+**⚠️ NOTA IMPORTANTE:** En algunas versiones de ACE 12, el comando `mqsichangebroker` está deprecado. Si recibes el error:
+```
+BIP8101E: The functionality provided by the mqsichangebroker command is now available using the mqsichangeproperties command.
+```
+
+Debes usar `mqsichangeproperties` en su lugar.
+
+##### Opción A: Usando mqsichangebroker (si está disponible)
 
 ```bash
 mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
@@ -252,15 +259,31 @@ mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
 mqsichangebroker BRKR_PROD -x /opt/appdynamics/iib-agent -e AppDynamicsExit
 ```
 
+##### Opción B: Usando mqsichangeproperties (cuando mqsichangebroker está deprecado)
+
+Si `mqsichangebroker` muestra el error de deprecación, usar:
+
+```bash
+mqsichangeproperties <BROKER_NAME> -n userExitPath -v <INSTALL_DIRECTORY>
+mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v <USER_EXIT_NAME>
+```
+
+**Ejemplo:**
+```bash
+mqsichangeproperties BRURALBRKQA -n userExitPath -v /opt/appdynamics/iib-agent
+mqsichangeproperties BRURALBRKQA -n activeUserExitList -v AppDynamicsExit
+```
+
 **Parámetros:**
-- `<BROKER_NAME>`: Nombre del broker (ej: `BRKR_PROD`)
+- `<BROKER_NAME>`: Nombre del broker (ej: `BRKR_PROD` o `BRURALBRKQA`)
 - `<INSTALL_DIRECTORY>`: Directorio donde se extrajo el agente IIB (ej: `/opt/appdynamics/iib-agent`)
 - `<USER_EXIT_NAME>`: Nombre del user exit (debe coincidir exactamente con `<user-exit>` en `controller-info.xml`)
 
 **⚠️ IMPORTANTE:**
-- El nombre del user exit (`-e`) debe ser **alfanumérico** y coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
-- El directorio de instalación (`-x`) debe ser la ruta completa donde se extrajo el agente
+- El nombre del user exit debe ser **alfanumérico** y coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
+- El directorio de instalación debe ser la ruta completa donde se extrajo el agente
 - Si el nombre del user exit contiene caracteres especiales, el broker no podrá cargarlo
+- Si `mqsichangebroker` muestra error de deprecación, usar `mqsichangeproperties` con los dos comandos mostrados arriba
 
 #### Método 2: Usando node.conf.yaml (ACE 11, ACE 12)
 
@@ -313,7 +336,7 @@ ls -la <ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml
 grep -A 2 "UserExits" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml
 ```
 
-**Nota:** Si usas el método de `node.conf.yaml`, no necesitas ejecutar `mqsichangebroker`. El broker cargará el user exit automáticamente al iniciar basándose en la configuración del archivo.
+**Nota:** Si usas el método de `node.conf.yaml`, no necesitas ejecutar `mqsichangebroker` ni `mqsichangeproperties`. El broker cargará el user exit automáticamente al iniciar basándose en la configuración del archivo.
 
 ### Paso 3: Verificar Instalación
 
@@ -459,7 +482,11 @@ grep -i "user.exit\|error" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb
 3. **Reinstalar el user exit:**
    ```bash
    mqsi stop <BROKER_NAME>
+   # Si mqsichangebroker está disponible:
    mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
+   # O si está deprecado, usar:
+   # mqsichangeproperties <BROKER_NAME> -n userExitPath -v <INSTALL_DIRECTORY>
+   # mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v <USER_EXIT_NAME>
    mqsi start <BROKER_NAME>
    ```
 

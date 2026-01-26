@@ -44,9 +44,15 @@ mqsi stop <BROKER_NAME>
 
 ### 4. Instalar el User Exit
 
-**Opción A: Usando mqsichangebroker (Recomendado)**
+**Opción A: Usando mqsichangebroker (si está disponible)**
 ```bash
 mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+```
+
+**⚠️ Si recibes error BIP8101E (comando deprecado), usar:**
+```bash
+mqsichangeproperties <BROKER_NAME> -n userExitPath -v /opt/appdynamics/iib-agent
+mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v AppDynamicsExit
 ```
 
 **Opción B: Usando node.conf.yaml (ACE 11, ACE 12)**
