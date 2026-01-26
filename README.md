@@ -357,7 +357,11 @@ curl -v https://<controller-host>:<controller-port>/controller/rest/applications
 3. **Desinstalar temporalmente el agente:**
    ```bash
    mqsistop <BROKER_NAME>
+   # Si mqsichangebroker está disponible:
    mqsichangebroker <BROKER_NAME> -x "" -e ""
+   # O si está deprecado:
+   # mqsichangeproperties <BROKER_NAME> -n userExitPath -v ""
+   # mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v ""
    mqsistart <BROKER_NAME>
    ```
    Si el broker inicia sin el agente, el problema está en la configuración del agente.
@@ -373,7 +377,11 @@ Si necesitas desinstalar el agente:
 mqsi stop <BROKER_NAME>
 
 # 2. Remover el user exit
+# Si mqsichangebroker está disponible:
 mqsichangebroker <BROKER_NAME> -x "" -e ""
+# O si está deprecado:
+# mqsichangeproperties <BROKER_NAME> -n userExitPath -v ""
+# mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v ""
 
 # 3. Iniciar el broker
 mqsi start <BROKER_NAME>

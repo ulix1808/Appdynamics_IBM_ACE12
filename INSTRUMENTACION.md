@@ -643,7 +643,11 @@ Si necesitas revertir la instrumentación:
 mqsi stop <BROKER_NAME>
 
 # 2. Remover el user exit
+# Si mqsichangebroker está disponible:
 mqsichangebroker <BROKER_NAME> -x "" -e ""
+# O si está deprecado, usar:
+# mqsichangeproperties <BROKER_NAME> -n userExitPath -v ""
+# mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v ""
 
 # 3. Iniciar el broker
 mqsi start <BROKER_NAME>
