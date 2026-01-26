@@ -2,330 +2,310 @@
 
 **Problema:** Después de reiniciar el BUS, no hay logs en la carpeta del agente y no aparece registrado en el Controller.
 
+> **⚠️ IMPORTANTE:** El agente de AppDynamics para IBM ACE/IIB es un **User Exit nativo**, NO un agente Java. Se instala usando `mqsichangebroker` y NO requiere `JAVA_OPTS` ni `-javaagent`.
+
 ## ⚠️ Síntoma Crítico: Comando de Verificación No Devuelve Nada
 
 Si ejecutaste este comando y **NO devuelve nada**:
 
 ```bash
-grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+grep -i "<USER_EXIT_NAME>\|appdynamics\|user.exit" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
 ```
 
 **Esto significa:**
 - ✅ El agente **NO se está cargando** en absoluto
-- ✅ El proceso Java del broker **NO tiene** el parámetro `-javaagent` configurado
-- ✅ `JAVA_OPTS` **NO se está configurando** correctamente al iniciar el broker
+- ✅ El user exit **NO está instalado** o **NO se está cargando** correctamente
+- ✅ El broker **NO está reconociendo** el user exit
 
-**Acción inmediata:** Ir directamente al **Paso 3** (verificar que JAVA_OPTS se configura) y luego al **Paso 2** (verificar mqsiprofile).
+**Acción inmediata:** Verificar que el user exit está instalado con `mqsireportbroker` y seguir el diagnóstico paso a paso.
 
 ---
 
 ## 🔍 Diagnóstico Rápido (Ejecutar en Orden)
 
-### Paso 1: Verificar que el archivo javaagent.jar existe
+### Paso 1: Verificar que el user exit está instalado
 
 ```bash
-# Verificar existencia
-ls -la /opt/appdynamics/AppServerAgent/javaagent.jar
+# Verificar configuración del broker
+mqsireportbroker <BROKER_NAME>
 
-# Si no existe, verificar otras ubicaciones posibles
-find /opt -name "javaagent.jar" 2>/dev/null
-find /usr/local -name "javaagent.jar" 2>/dev/null
+# Debe mostrar información sobre el user exit instalado
+# Buscar referencias a AppDynamics o el nombre del user exit
 ```
 
-**Resultado esperado:** Debe mostrar el archivo con permisos de lectura.
-
----
-
-### Paso 2: Verificar configuración en mqsiprofile
-
-```bash
-# Reemplazar <ACE_INSTALL_DIR> con tu ruta real (ej: /opt/ibm/ace-12.0)
-# Reemplazar <BROKER_NAME> con el nombre de tu broker
-
-# Verificar que la configuración está en el archivo
-grep -i "appdynamics\|javaagent" <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-
-# Ver las últimas 20 líneas del archivo
-tail -20 <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-```
-
-**Resultado esperado:** Debe mostrar las líneas de configuración de AppDynamics.
+**Resultado esperado:** Debe mostrar información sobre el user exit instalado.
 
 **Si NO aparece nada:**
-- La configuración no se guardó correctamente
-- Verificar que se editó el archivo correcto
-- Verificar permisos de escritura en el archivo
+- El user exit no está instalado
+- Necesitas instalarlo con `mqsichangebroker`
 
 ---
 
-### Paso 3: Verificar que JAVA_OPTS se configura correctamente
+### Paso 2: Verificar que el directorio del agente existe
 
 ```bash
-# Cargar el mqsiprofile manualmente
-source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+# Verificar existencia del directorio de instalación
+ls -la /opt/appdynamics/iib-agent/
 
-# Verificar JAVA_OPTS
-echo $JAVA_OPTS | grep -i "javaagent\|appdynamics"
-
-# Ver el contenido completo de JAVA_OPTS
-echo $JAVA_OPTS
+# Si no existe, verificar otras ubicaciones posibles
+find /opt -name "controller-info.xml" 2>/dev/null | grep -i appdynamics
+find /usr/local -name "controller-info.xml" 2>/dev/null | grep -i appdynamics
 ```
 
-**Resultado esperado:** Debe mostrar `-javaagent:/opt/appdynamics/AppServerAgent/javaagent.jar`
-
-**Si NO aparece:**
-- El mqsiprofile no está configurando JAVA_OPTS correctamente
-- Puede haber un error de sintaxis en el script
-- Verificar que la ruta del javaagent.jar es correcta
+**Resultado esperado:** Debe mostrar el directorio con los archivos del agente.
 
 ---
 
-### Paso 4: Verificar sintaxis del mqsiprofile
+### Paso 3: Verificar configuración en controller-info.xml
 
 ```bash
-# Verificar que no hay errores de sintaxis
-bash -n <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+# Verificar que el archivo existe
+ls -la /opt/appdynamics/iib-agent/conf/controller-info.xml
+
+# Verificar configuración básica
+grep -E "controller-host|controller-port|account-name|account-access-key|application-name|user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
+
+# ⚠️ CRÍTICO: Verificar que user-exit es alfanumérico
+grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 ```
 
-**Resultado esperado:** No debe mostrar ningún error.
+**Resultado esperado:** 
+- Debe mostrar todas las configuraciones
+- El `user-exit` debe ser alfanumérico (sin caracteres especiales)
 
-**Si hay errores:** Corregir la sintaxis antes de continuar.
+**Si el `user-exit` contiene caracteres especiales:**
+- El broker NO puede cargar el agente
+- Cambiar a un nombre alfanumérico
+
+---
+
+### Paso 4: Verificar que el nombre del user exit coincide
+
+```bash
+# Verificar nombre en controller-info.xml
+USER_EXIT_XML=$(grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml | sed 's/.*<user-exit>\(.*\)<\/user-exit>.*/\1/')
+echo "User exit en XML: $USER_EXIT_XML"
+
+# Verificar nombre usado en mqsichangebroker
+# (Revisar historial de comandos o documentación)
+# Deben coincidir EXACTAMENTE
+```
+
+**Resultado esperado:** Los nombres deben coincidir exactamente.
+
+**Si NO coinciden:**
+- El broker no puede cargar el user exit
+- Reinstalar con el nombre correcto
 
 ---
 
 ### Paso 5: Verificar permisos y directorio de logs
 
 ```bash
-# Verificar permisos del javaagent.jar
-ls -l /opt/appdynamics/AppServerAgent/javaagent.jar
+# Verificar permisos del directorio del agente
+ls -ld /opt/appdynamics/iib-agent
 
 # Verificar que el directorio de logs existe
-ls -ld /opt/appdynamics/AppServerAgent/logs
+LOG_DIR=$(grep "log-dir" /opt/appdynamics/iib-agent/conf/controller-info.xml | sed 's/.*<log-dir>\(.*\)<\/log-dir>.*/\1/')
+echo "Directorio de logs: $LOG_DIR"
+ls -ld "$LOG_DIR" 2>/dev/null || echo "⚠️ Directorio de logs no existe"
 
 # Si no existe, crearlo
-mkdir -p /opt/appdynamics/AppServerAgent/logs
-chown <ACE_USER>:<ACE_GROUP> /opt/appdynamics/AppServerAgent/logs
-chmod 775 /opt/appdynamics/AppServerAgent/logs
+mkdir -p "$LOG_DIR"
+chown <ACE_USER>:<ACE_GROUP> "$LOG_DIR"
+chmod 775 "$LOG_DIR"
 ```
 
 **Reemplazar `<ACE_USER>` y `<ACE_GROUP>` con el usuario y grupo que ejecuta ACE.**
 
 ---
 
-### Paso 6: Verificar cómo se inicia el broker
+### Paso 6: Verificar cómo se instaló el user exit
 
 ```bash
-# Verificar procesos en ejecución
-ps aux | grep -i "mqsi\|ace\|broker" | grep -v grep
+# Verificar la instalación del user exit
+mqsireportbroker <BROKER_NAME> | grep -i "user.exit\|appdynamics"
 
-# Verificar si hay un script de inicio personalizado
-ls -la <ACE_INSTALL_DIR>/server/bin/mqsistart*
-ls -la /etc/init.d/*mqsi* 2>/dev/null
-ls -la /etc/systemd/system/*mqsi* 2>/dev/null
-ls -la /etc/systemd/system/*ace* 2>/dev/null
+# Verificar logs del broker al iniciar
+grep -i "user.exit\|appdynamics" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log | tail -50
 ```
 
-**Importante:** Si el broker se inicia mediante systemd o un script personalizado, puede que el mqsiprofile no se cargue automáticamente.
+**Si no hay referencias:** El user exit no se está cargando.
 
 ---
 
-### Paso 7: Verificar logs de inicio del broker
+### Paso 7: Verificar logs del agente
 
 ```bash
-# ⚠️ IMPORTANTE: Usar grep directamente (más eficiente que cat con wildcards)
-# Buscar cualquier referencia a javaagent o appdynamics en logs del broker
-grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+# Verificar directorio de logs configurado
+LOG_DIR=$(grep "log-dir" /opt/appdynamics/iib-agent/conf/controller-info.xml | sed 's/.*<log-dir>\(.*\)<\/log-dir>.*/\1/')
+echo "Buscando logs en: $LOG_DIR"
 
-# Si el comando anterior no devuelve nada, probar:
-# 1. Verificar que los archivos de log existen
-ls -la <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+# Si está vacío, usar default
+if [ -z "$LOG_DIR" ]; then
+    LOG_DIR="/tmp/appd"
+fi
 
-# 2. Buscar en todos los logs (incluyendo subdirectorios)
-find <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs -name "*.log" -exec grep -i "javaagent\|appdynamics" {} \;
+# Verificar logs
+ls -la "$LOG_DIR"/*.log 2>/dev/null || echo "⚠️ No hay archivos de log aún"
 
-# 3. Ver los últimos logs de inicio del broker
-grep -i "java\|jvm\|start" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log | tail -50
-
-# 4. Verificar logs del sistema (si están disponibles)
-tail -100 <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log 2>/dev/null | grep -i "java\|jvm"
+# Ver contenido de logs
+tail -50 "$LOG_DIR"/*.log 2>/dev/null || echo "⚠️ No hay logs para mostrar"
 ```
 
-**⚠️ Si NO hay referencias a AppDynamics en los logs:**
-- **El agente definitivamente NO se está cargando**
-- El proceso Java no está recibiendo el parámetro `-javaagent`
-- Esto confirma que `JAVA_OPTS` no se está configurando correctamente
-- **Acción:** Volver al Paso 3 y verificar que `JAVA_OPTS` se configura al cargar `mqsiprofile`
+**Si no hay logs:** El agente no se está ejecutando.
 
 ---
 
 ## 🔧 Soluciones Comunes
 
-### ⚠️ Solución 0: Si el comando de verificación NO devuelve nada
+### ⚠️ Solución 0: Si el user exit NO está instalado
 
-**Síntoma:** Este comando no devuelve ningún resultado:
-```bash
-grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
-```
+**Síntoma:** `mqsireportbroker` no muestra información del user exit.
 
-**Diagnóstico:**
-- El agente **NO se está cargando** en absoluto
-- El proceso Java del broker **NO tiene** el parámetro `-javaagent`
-- Esto significa que `JAVA_OPTS` no se está configurando al iniciar el broker
-
-**Pasos inmediatos:**
-
-1. **Verificar que mqsiprofile tiene la configuración:**
-   ```bash
-   grep -i "appdynamics\|javaagent" <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-   ```
-   Si no aparece nada → Ir a Solución 1
-
-2. **Verificar que JAVA_OPTS se configura al cargar mqsiprofile:**
-   ```bash
-   source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-   echo $JAVA_OPTS | grep javaagent
-   ```
-   Si no aparece → El mqsiprofile tiene un error o la configuración está mal
-
-3. **Verificar cómo se inicia el broker:**
-   - ¿Se carga el mqsiprofile automáticamente?
-   - ¿Hay un script de inicio personalizado?
-   - ¿Se usa systemd o init.d?
-
-**Solución:** Seguir con Solución 1 y Solución 3.
-
----
-
-### Solución 1: Corregir configuración en mqsiprofile
+**Solución:** Instalar el user exit:
 
 ```bash
-# 1. Hacer backup
-cp <ACE_INSTALL_DIR>/server/bin/mqsiprofile <ACE_INSTALL_DIR>/server/bin/mqsiprofile.backup.$(date +%Y%m%d_%H%M%S)
-
-# 2. Verificar ruta correcta del javaagent.jar
-JAVAAGENT_PATH="/opt/appdynamics/AppServerAgent/javaagent.jar"
-ls -la "$JAVAAGENT_PATH"
-
-# 3. Agregar al FINAL del mqsiprofile (usar >> para agregar, no sobrescribir)
-cat >> <ACE_INSTALL_DIR>/server/bin/mqsiprofile << 'EOF'
-
-# =========================================
-# AppDynamics Java Agent Configuration
-# Agregado: $(date)
-# =========================================
-APP_AGENT_DIR="/opt/appdynamics/AppServerAgent"
-APP_AGENT_JAR="${APP_AGENT_DIR}/javaagent.jar"
-
-if [ -f "${APP_AGENT_JAR}" ]; then
-    export APP_AGENT_JAVA_OPTS="-javaagent:${APP_AGENT_JAR}"
-    export JAVA_OPTS="${JAVA_OPTS} ${APP_AGENT_JAVA_OPTS}"
-    echo "[AppDynamics] Agent configurado: ${APP_AGENT_JAR}"
-else
-    echo "[AppDynamics] ERROR: Agent no encontrado en ${APP_AGENT_JAR}"
-fi
-EOF
-
-# 4. Verificar que se agregó
-tail -15 <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-
-# 5. Probar carga manual
-source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-echo $JAVA_OPTS | grep javaagent
-```
-
----
-
-### Solución 2: Verificar que el broker carga el mqsiprofile
-
-IBM ACE debe cargar el mqsiprofile al iniciar. Verificar:
-
-```bash
-# Verificar si hay referencias a mqsiprofile en los scripts de inicio
-grep -r "mqsiprofile" <ACE_INSTALL_DIR>/server/bin/ 2>/dev/null
-
-# Verificar el script mqsistart (si existe)
-cat <ACE_INSTALL_DIR>/server/bin/mqsistart | grep -i "mqsiprofile\|source"
-```
-
-**Si el mqsiprofile no se carga automáticamente**, puede ser necesario:
-
-1. **Agregar source mqsiprofile en el script de inicio:**
-   ```bash
-   # Editar el script que inicia el broker
-   # Agregar ANTES de iniciar el proceso:
-   source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
-   ```
-
-2. **O configurar JAVA_OPTS directamente en el script de inicio:**
-   ```bash
-   # En el script de inicio, antes de ejecutar el proceso Java:
-   export JAVA_OPTS="${JAVA_OPTS} -javaagent:/opt/appdynamics/AppServerAgent/javaagent.jar"
-   ```
-
----
-
-### Solución 3: Reiniciar correctamente
-
-```bash
-# 1. Detener el broker completamente
+# 1. Detener el broker
 mqsi stop <BROKER_NAME>
 
-# 2. Verificar que se detuvo
-mqsi status <BROKER_NAME>
-# Debe mostrar que está detenido
+# 2. Instalar el user exit
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
 
-# 3. Esperar unos segundos
-sleep 5
+# 3. Verificar instalación
+mqsireportbroker <BROKER_NAME>
 
-# 4. Cargar mqsiprofile en la sesión actual
-source <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+# 4. Iniciar el broker
+mqsi start <BROKER_NAME>
+```
 
-# 5. Verificar JAVA_OPTS
-echo $JAVA_OPTS | grep javaagent
+---
 
-# 6. Iniciar el broker desde la MISMA sesión
+### Solución 1: Verificar y corregir nombre del user exit
+
+**Problema:** El nombre del user exit contiene caracteres especiales o no coincide.
+
+```bash
+# 1. Verificar nombre en controller-info.xml
+grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
+
+# 2. Si contiene caracteres especiales, cambiarlo a alfanumérico
+# Editar controller-info.xml y cambiar a algo como: AppDynamicsExit
+
+# 3. Detener el broker
+mqsi stop <BROKER_NAME>
+
+# 4. Reinstalar con el nombre correcto
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+
+# 5. Verificar que coinciden
+USER_EXIT_XML=$(grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml | sed 's/.*<user-exit>\(.*\)<\/user-exit>.*/\1/')
+echo "User exit configurado: $USER_EXIT_XML"
+echo "Asegurar que coincide con el usado en mqsichangebroker"
+
+# 6. Iniciar el broker
+mqsi start <BROKER_NAME>
+```
+
+---
+
+### Solución 2: Verificar ruta de instalación
+
+**Problema:** La ruta de instalación es incorrecta o inaccesible.
+
+```bash
+# 1. Verificar que el directorio existe
+INSTALL_DIR="/opt/appdynamics/iib-agent"
+ls -la "$INSTALL_DIR"
+
+# 2. Verificar que contiene los archivos del agente
+ls -la "$INSTALL_DIR/conf/controller-info.xml"
+ls -la "$INSTALL_DIR/lib/"
+
+# 3. Verificar permisos
+ls -ld "$INSTALL_DIR"
+# Debe ser legible por el usuario que ejecuta ACE
+
+# 4. Si la ruta es incorrecta, reinstalar con la ruta correcta
+mqsi stop <BROKER_NAME>
+mqsichangebroker <BROKER_NAME> -x "$INSTALL_DIR" -e AppDynamicsExit
+mqsi start <BROKER_NAME>
+```
+
+---
+
+### Solución 3: Verificar configuración de controller-info.xml
+
+**Problema:** La configuración es incorrecta o incompleta.
+
+```bash
+# 1. Verificar que el archivo existe
+ls -la /opt/appdynamics/iib-agent/conf/controller-info.xml
+
+# 2. Verificar configuración básica
+cat /opt/appdynamics/iib-agent/conf/controller-info.xml | grep -E "controller-host|controller-port|account-name|account-access-key|application-name|tier-name|user-exit"
+
+# 3. Verificar que todos los valores están configurados
+# No debe haber valores vacíos o de ejemplo
+
+# 4. Si hay problemas, corregir el archivo y reiniciar el broker
+mqsi stop <BROKER_NAME>
+mqsi start <BROKER_NAME>
+```
+
+---
+
+### Solución 4: Verificar logs del broker
+
+**Problema:** El broker tiene errores al cargar el user exit.
+
+```bash
+# 1. Ver logs del sistema del broker
+tail -100 <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log
+
+# 2. Buscar errores relacionados con user exits
+grep -i "user.exit\|error\|fail" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log | tail -50
+
+# 3. Buscar referencias específicas al user exit
+grep -i "AppDynamicsExit\|appdynamics" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log
+```
+
+**Errores comunes:**
+- "User exit name must be alphanumeric" → El nombre contiene caracteres especiales
+- "Cannot load user exit" → La ruta es incorrecta o el archivo no existe
+- "Permission denied" → Problemas de permisos
+
+---
+
+### Solución 5: Reinstalar el user exit completamente
+
+Si nada funciona, reinstalar desde cero:
+
+```bash
+# 1. Detener el broker
+mqsi stop <BROKER_NAME>
+
+# 2. Remover el user exit actual
+mqsichangebroker <BROKER_NAME> -x "" -e ""
+
+# 3. Verificar que se removió
+mqsireportbroker <BROKER_NAME>
+
+# 4. Verificar configuración
+cat /opt/appdynamics/iib-agent/conf/controller-info.xml | grep "user-exit"
+# Asegurar que es alfanumérico
+
+# 5. Instalar nuevamente
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+
+# 6. Verificar instalación
+mqsireportbroker <BROKER_NAME>
+
+# 7. Iniciar el broker
 mqsi start <BROKER_NAME>
 
-# 7. Inmediatamente verificar logs (esperar 10-15 segundos)
-sleep 15
-ls -la /opt/appdynamics/AppServerAgent/logs/
-tail -50 /opt/appdynamics/AppServerAgent/logs/agent.log
-```
-
----
-
-### Solución 4: Verificar variables de entorno del proceso Java
-
-Si el broker ya está corriendo, verificar si el proceso Java tiene JAVA_OPTS configurado:
-
-```bash
-# Encontrar el PID del proceso Java del broker
-JAVA_PID=$(ps aux | grep "[j]ava.*broker\|[j]ava.*ace" | awk '{print $2}' | head -1)
-
-# Ver variables de entorno del proceso (requiere permisos)
-if [ ! -z "$JAVA_PID" ]; then
-    echo "PID del proceso Java: $JAVA_PID"
-    # En Linux, ver variables de entorno:
-    cat /proc/$JAVA_PID/environ | tr '\0' '\n' | grep -i "java_opts\|javaagent"
-else
-    echo "No se encontró proceso Java del broker"
-fi
-```
-
-**Nota:** Esto requiere permisos adecuados. Si no funciona, puede ser necesario ejecutarlo como el usuario que ejecuta ACE.
-
----
-
-### Solución 5: Verificar configuración de controller-info.xml
-
-Aunque el agente no se esté cargando, verificar que la configuración es correcta:
-
-```bash
-# Verificar que el archivo existe
-ls -la /opt/appdynamics/AppServerAgent/conf/controller-info.xml
-
-# Verificar configuración básica
-grep -E "controller-host|controller-port|account-name|account-access-key|application-name" /opt/appdynamics/AppServerAgent/conf/controller-info.xml
+# 8. Verificar logs inmediatamente
+tail -f <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log | grep -i "user.exit\|appdynamics"
 ```
 
 ---
@@ -334,16 +314,15 @@ grep -E "controller-host|controller-port|account-name|account-access-key|applica
 
 Antes de reportar el problema, verificar:
 
-- [ ] El archivo `javaagent.jar` existe en `/opt/appdynamics/AppServerAgent/javaagent.jar`
-- [ ] Los permisos del archivo son correctos (lectura para el usuario de ACE)
-- [ ] La configuración está en el `mqsiprofile` (verificado con `grep`)
-- [ ] Al cargar `mqsiprofile` manualmente, `JAVA_OPTS` contiene el javaagent
-- [ ] No hay errores de sintaxis en el `mqsiprofile` (`bash -n` no muestra errores)
-- [ ] El directorio de logs existe: `/opt/appdynamics/AppServerAgent/logs/`
-- [ ] El directorio de logs tiene permisos de escritura
-- [ ] El broker se reinició DESPUÉS de modificar el `mqsiprofile`
+- [ ] El directorio del agente existe: `/opt/appdynamics/iib-agent/`
+- [ ] El archivo `controller-info.xml` existe y es legible
+- [ ] El `user-exit` en `controller-info.xml` es **alfanumérico**
+- [ ] El user exit está instalado (verificado con `mqsireportbroker`)
+- [ ] El nombre del user exit coincide entre `controller-info.xml` y `mqsichangebroker`
+- [ ] El directorio de logs existe y tiene permisos de escritura
+- [ ] El broker se reinició DESPUÉS de instalar el user exit
 - [ ] Se verificaron los logs del broker para errores
-- [ ] Se verificó cómo se inicia el broker (script, systemd, etc.)
+- [ ] Se verificaron los logs del agente (en el directorio configurado)
 
 ---
 
@@ -351,49 +330,50 @@ Antes de reportar el problema, verificar:
 
 Si después de seguir todos los pasos el agente aún no se carga:
 
-1. **Verificar versión de Java:**
+1. **Verificar versión de ACE:**
    ```bash
-   java -version
-   # ACE 12 requiere Java 1.8 o superior
+   mqsi version
+   # ACE 12 debe ser compatible
    ```
 
 2. **Verificar compatibilidad del agente:**
-   - Verificar que la versión del agente AppDynamics es compatible con tu Controller
-   - Verificar que es compatible con la versión de Java
+   - Verificar que la versión del agente IIB es compatible con tu Controller
+   - Verificar que es compatible con la versión de ACE
 
 3. **Contactar soporte:**
    - Documentar todos los resultados de los pasos anteriores
-   - Incluir salida de comandos de verificación
-   - Incluir logs del broker
-   - Incluir contenido del mqsiprofile (últimas 30 líneas)
+   - Incluir salida de `mqsireportbroker`
+   - Incluir logs del broker (system.log)
+   - Incluir logs del agente (si existen)
+   - Incluir contenido de `controller-info.xml` (sin el Access Key)
 
 ---
 
 ## 📝 Comandos de Verificación Rápida (Copy-Paste)
 
 ```bash
-# 1. Verificar archivo javaagent.jar
-ls -la /opt/appdynamics/AppServerAgent/javaagent.jar
+# 1. Verificar que el user exit está instalado
+mqsireportbroker <BROKER_NAME> | grep -i "user.exit\|appdynamics"
 
-# 2. Verificar configuración en mqsiprofile
-grep -i "appdynamics\|javaagent" <ACE_INSTALL_DIR>/server/bin/mqsiprofile
+# 2. Verificar directorio del agente
+ls -la /opt/appdynamics/iib-agent/
 
-# 3. Verificar JAVA_OPTS (cargar mqsiprofile primero)
-source <ACE_INSTALL_DIR>/server/bin/mqsiprofile && echo $JAVA_OPTS | grep javaagent
+# 3. Verificar configuración
+grep -E "controller-host|controller-port|user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
-# 4. Verificar logs del agente AppDynamics
-ls -la /opt/appdynamics/AppServerAgent/logs/
-tail -50 /opt/appdynamics/AppServerAgent/logs/agent.log 2>/dev/null || echo "⚠️ No hay logs aún - el agente no se está cargando"
+# 4. Verificar que user-exit es alfanumérico
+grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
-# 5. ⚠️ CRÍTICO: Buscar referencias a AppDynamics en logs del broker
-grep -i "javaagent\|appdynamics\|agent" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/*.log
+# 5. Verificar logs del broker
+grep -i "user.exit\|appdynamics" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log | tail -20
 
-# Si el comando anterior NO devuelve nada:
-# → El agente NO se está cargando
-# → JAVA_OPTS no se está configurando correctamente
-# → Verificar Paso 2 y Paso 3 del diagnóstico
+# 6. Verificar logs del agente
+LOG_DIR=$(grep "log-dir" /opt/appdynamics/iib-agent/conf/controller-info.xml | sed 's/.*<log-dir>\(.*\)<\/log-dir>.*/\1/' 2>/dev/null)
+LOG_DIR=${LOG_DIR:-/tmp/appd}
+ls -la "$LOG_DIR"/*.log 2>/dev/null || echo "No hay logs aún"
 ```
 
 ---
 
-**Última actualización:** Enero 2025
+**Última actualización:** Enero 2025  
+**Referencia:** [AppDynamics IIB Agent Documentation](https://docs.appdynamics.com/appd/24.x/latest/en/application-monitoring/install-app-server-agents/ibm-integration-bus-agent/install-the-iib-agent)
