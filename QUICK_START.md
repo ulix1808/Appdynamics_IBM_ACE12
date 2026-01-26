@@ -44,8 +44,18 @@ mqsi stop <BROKER_NAME>
 
 ### 4. Instalar el User Exit
 
+**Opción A: Usando mqsichangebroker (Recomendado)**
 ```bash
 mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+```
+
+**Opción B: Usando node.conf.yaml (ACE 11, ACE 12)**
+Editar: `<ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml`
+
+```yaml
+UserExits:
+  activeUserExitList: 'AppDynamicsExit'
+  userExitPath: '/opt/appdynamics/iib-agent'
 ```
 
 **Parámetros:**

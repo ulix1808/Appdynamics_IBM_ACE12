@@ -157,7 +157,9 @@ mqsi status <BROKER_NAME>
 
 ### Paso 2: Instalar el User Exit
 
-Instalar el agente AppDynamics como user exit en el broker:
+Hay dos métodos para instalar el user exit:
+
+#### Método 1: Usando mqsichangebroker (Recomendado para IIB 10, ACE 11, ACE 12)
 
 ```bash
 mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
@@ -168,14 +170,28 @@ mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
 mqsichangebroker BRKR_PROD -x /opt/appdynamics/iib-agent -e AppDynamicsExit
 ```
 
+#### Método 2: Usando node.conf.yaml (ACE 11, ACE 12)
+
+Para ACE 11 y ACE 12, también puedes configurar editando el archivo `node.conf.yaml`:
+
+**Ubicación:** `<ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml`
+
+**Agregar o modificar:**
+```yaml
+UserExits:
+  activeUserExitList: 'AppDynamicsExit'  # Nombre del user exit
+  userExitPath: '/opt/appdynamics/iib-agent'  # Ruta del agente
+```
+
 **Parámetros:**
 - `<BROKER_NAME>`: Nombre del broker (ej: `BRKR_PROD`)
 - `<INSTALL_DIRECTORY>`: Directorio donde se extrajo el agente IIB (ej: `/opt/appdynamics/iib-agent`)
 - `<USER_EXIT_NAME>`: Nombre del user exit (debe coincidir con `<user-exit>` en `controller-info.xml`)
 
 **⚠️ IMPORTANTE:** 
-- El nombre del user exit (`-e`) debe ser **alfanumérico** y coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
-- El directorio de instalación (`-x`) debe ser la ruta completa donde se extrajo el agente
+- El nombre del user exit debe ser **alfanumérico** y coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
+- El directorio de instalación debe ser la ruta completa donde se extrajo el agente
+- Si usas `node.conf.yaml`, no necesitas ejecutar `mqsichangebroker`
 
 ### Paso 3: Iniciar el Broker
 

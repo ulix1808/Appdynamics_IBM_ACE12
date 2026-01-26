@@ -237,6 +237,10 @@ mqsi status <BROKER_NAME>
 
 ### Paso 2: Instalar el User Exit
 
+Hay dos métodos para instalar el user exit, dependiendo de la versión de ACE:
+
+#### Método 1: Usando mqsichangebroker (IIB 10, ACE 11, ACE 12)
+
 Instalar el agente AppDynamics como user exit en el broker:
 
 ```bash
@@ -257,6 +261,59 @@ mqsichangebroker BRKR_PROD -x /opt/appdynamics/iib-agent -e AppDynamicsExit
 - El nombre del user exit (`-e`) debe ser **alfanumérico** y coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
 - El directorio de instalación (`-x`) debe ser la ruta completa donde se extrajo el agente
 - Si el nombre del user exit contiene caracteres especiales, el broker no podrá cargarlo
+
+#### Método 2: Usando node.conf.yaml (ACE 11, ACE 12)
+
+Para ACE 11 y ACE 12, también puedes configurar el user exit editando directamente el archivo `node.conf.yaml`:
+
+**Ubicación del archivo:**
+```
+<path-to-installation-directory>/<broker-name>/node.conf.yaml
+```
+
+**Ejemplo de ruta:**
+```
+/opt/ibm/ace-12.0/server/<BROKER_NAME>/node.conf.yaml
+```
+
+**Configuración en node.conf.yaml:**
+
+Agregar o modificar la sección `UserExits`:
+
+```yaml
+UserExits:
+  activeUserExitList: 'AppDynamicsExit'  # Especificar el nombre del user exit
+  userExitPath: '/opt/appdynamics/iib-agent'  # Especificar la ruta del agente
+```
+
+**Ejemplo completo de node.conf.yaml:**
+
+```yaml
+# Otras configuraciones del broker...
+# ...
+
+UserExits:
+  activeUserExitList: 'AppDynamicsExit'
+  userExitPath: '/opt/appdynamics/iib-agent'
+```
+
+**⚠️ IMPORTANTE:**
+- El `activeUserExitList` debe coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
+- El `userExitPath` debe ser la ruta completa donde se extrajo el agente
+- El nombre del user exit debe ser **alfanumérico**
+- Después de editar `node.conf.yaml`, es necesario reiniciar el broker
+
+**Verificar la configuración:**
+
+```bash
+# Verificar que el archivo existe
+ls -la <ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml
+
+# Verificar la configuración del user exit
+grep -A 2 "UserExits" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml
+```
+
+**Nota:** Si usas el método de `node.conf.yaml`, no necesitas ejecutar `mqsichangebroker`. El broker cargará el user exit automáticamente al iniciar basándose en la configuración del archivo.
 
 ### Paso 3: Verificar Instalación
 
