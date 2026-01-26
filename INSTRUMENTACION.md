@@ -650,7 +650,11 @@ tail -f <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log
 
 ### Instrumentación Parcial
 
-Si tienes un alto volumen de actividad, puedes instrumentar solo flows críticos:
+Si tienes un alto volumen de actividad, puedes instrumentar solo componentes críticos en lugar de todo el broker.
+
+#### Opción 1: Instrumentar solo Flows Críticos (IIB 10)
+
+Para IIB 10, puedes instrumentar solo flows específicos:
 
 1. Instalar el agente sin habilitarlo para todos los flows:
    ```bash
@@ -661,6 +665,76 @@ Si tienes un alto volumen de actividad, puedes instrumentar solo flows críticos
    ```bash
    mqsichangeflowuserexits <BROKER_NAME> -a <USER_EXIT_NAME> -e <integrationServerName> -f <MessageFlow> -k <application_name>
    ```
+
+#### Opción 2: Instrumentar solo Integration Servers Críticos (ACE 11, ACE 12)
+
+Para ACE 11 y ACE 12, puedes instrumentar solo integration servers específicos en lugar de todo el broker. Esto es útil cuando tienes un alto volumen de actividad y solo quieres monitorear servers críticos.
+
+**Pasos:**
+
+1. **Configurar el user exit en cada integration server que quieras instrumentar:**
+
+   Editar el archivo `server.conf.yaml` de cada integration server:
+   
+   **Ubicación:** `<path-to-installation-directory>/<broker-name>/servers/<server-name>/server.conf.yaml`
+   
+   **Ejemplo de ruta:**
+   ```
+   /opt/ibm/ace-12.0/server/<BROKER_NAME>/servers/<SERVER_NAME>/server.conf.yaml
+   ```
+
+   **Agregar o modificar la sección `UserExits`:**
+   ```yaml
+   UserExits:
+     activeUserExitList: 'AppDynamicsExit'  # Nombre del user exit a activar
+     userExitPath: '/opt/appdynamics/iib-agent'  # Ruta del agente
+   ```
+
+2. **Dejar vacío el `node.conf.yaml` (si estaba configurado):**
+
+   Editar: `<path-to-installation-directory>/<broker-name>/node.conf.yaml`
+   
+   **Configurar como vacío:**
+   ```yaml
+   UserExits:
+     activeUserExitList: ''  # Dejar como cadena vacía
+     userExitPath: ''  # Dejar como cadena vacía
+   ```
+
+   **⚠️ IMPORTANTE:** Si el `node.conf.yaml` tiene el user exit configurado, se aplicará a TODOS los integration servers. Para instrumentación selectiva, debe estar vacío.
+
+3. **Reiniciar el broker:**
+   ```bash
+   mqsi stop <BROKER_NAME>
+   mqsi start <BROKER_NAME>
+   ```
+
+**Resultado:**
+- El agente solo se habilitará para los integration servers que tengan el user exit configurado en su `server.conf.yaml`
+- Los business transactions solo se crearán (o continuarán) para integration servers donde el user exit esté activo
+- Un nodo de aplicación se registrará por cada proceso de broker que tenga uno o más integration servers instrumentados
+
+**Ejemplo de estructura:**
+```
+/opt/ibm/ace-12.0/server/BRKR_PROD/
+├── node.conf.yaml  (UserExits vacío)
+└── servers/
+    ├── Server1/
+    │   └── server.conf.yaml  (UserExits configurado - INSTRUMENTADO)
+    ├── Server2/
+    │   └── server.conf.yaml  (UserExits vacío - NO instrumentado)
+    └── Server3/
+        └── server.conf.yaml  (UserExits configurado - INSTRUMENTADO)
+```
+
+**Verificar configuración:**
+```bash
+# Verificar node.conf.yaml está vacío
+grep -A 2 "UserExits" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml
+
+# Verificar server.conf.yaml de cada integration server
+grep -A 2 "UserExits" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/servers/<SERVER_NAME>/server.conf.yaml
+```
 
 ---
 
