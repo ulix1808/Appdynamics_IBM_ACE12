@@ -29,12 +29,12 @@ Editar: `/opt/appdynamics/iib-agent/conf/controller-info.xml`
 <account-access-key>TU_ACCESS_KEY</account-access-key>
 <application-name>IBM_ACE_Production</application-name>
 <tier-name>ACE12-Production</tier-name>
-<user-exit>AppDynamicsExit</user-exit>
+<user-exit>wmqi</user-exit>
 <log-dir>/opt/appdynamics/iib-agent/logs</log-dir>
 <log-level>info</log-level>
 ```
 
-**⚠️ IMPORTANTE:** El `user-exit` debe ser **alfanumérico**.
+**⚠️ IMPORTANTE:** El Controller exige **`wmqi`** en `controller-info.xml` y en el YAML. Con "AppDynamics" o "AppDynamicsExit" no funciona.
 
 ### 3. Detener el Broker
 
@@ -44,15 +44,15 @@ mqsi stop <BROKER_NAME>
 
 ### 4. Instalar el User Exit
 
-**Opción A: Usando mqsichangebroker (si está disponible)**
+**Opción A: Usando mqsichangebroker** (solo en versiones donde no esté deprecado)
 ```bash
-mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e wmqi
 ```
 
-**⚠️ Si recibes error BIP8101E (comando deprecado), usar:**
+**⚠️ En ACE 12.0.12.x el comando está deprecado.** Si recibes **BIP8161E** o **BIP8101E** (*"now available using the mqsichangeproperties command"*), usar:
 ```bash
 mqsichangeproperties <BROKER_NAME> -n userExitPath -v /opt/appdynamics/iib-agent
-mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v AppDynamicsExit
+mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v wmqi
 ```
 
 **Opción B: Usando node.conf.yaml (ACE 11, ACE 12)**
@@ -60,14 +60,14 @@ Editar: `<ACE_INSTALL_DIR>/server/<BROKER_NAME>/node.conf.yaml`
 
 ```yaml
 UserExits:
-  activeUserExitList: 'AppDynamicsExit'
+  activeUserExitList: 'wmqi'
   userExitPath: '/opt/appdynamics/iib-agent'
 ```
 
 **Parámetros:**
 - `<BROKER_NAME>`: Nombre de tu broker
 - `-x`: Directorio donde se extrajo el agente
-- `-e`: Nombre del user exit (debe coincidir con `<user-exit>` en controller-info.xml)
+- `-e`: Debe ser **wmqi** (mismo valor que en controller-info.xml y en el YAML)
 
 ### 5. Iniciar y Verificar
 

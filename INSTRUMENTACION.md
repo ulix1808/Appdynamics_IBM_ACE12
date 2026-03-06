@@ -30,7 +30,7 @@ Antes de comenzar, necesitas obtener del equipo de AppDynamics:
 - [ ] **Access Key**: Clave de acceso (Account Settings > Access Keys)
 - [ ] **Application Name**: Nombre de la aplicación en AppDynamics
 - [ ] **Tier Name**: Nombre del tier/servidor (ej: "ACE12-Production")
-- [ ] **User Exit Name**: Nombre alfanumérico para el user exit (ej: "AppDynamicsExit")
+- [ ] **User Exit Name**: Debe ser **`wmqi`** (requerido por el Controller; con "AppDynamics" o "AppDynamicsExit" no funciona)
 
 ### Información del Entorno ACE
 
@@ -167,8 +167,8 @@ sudo chmod -R 755 /opt/appdynamics
     <!-- Configuración del User Exit             -->
     <!-- ========================================= -->
     
-    <!-- ⚠️ IMPORTANTE: Nombre del user exit (DEBE SER ALFANUMÉRICO) -->
-    <user-exit>AppDynamicsExit</user-exit>
+    <!-- ⚠️ IMPORTANTE: Debe ser "wmqi" (requerido por el Controller) -->
+    <user-exit>wmqi</user-exit>
     
     <!-- ========================================= -->
     <!-- Configuración de Logs                   -->
@@ -201,7 +201,7 @@ sudo chmod -R 755 /opt/appdynamics
 
 **⚠️ IMPORTANTE:** 
 - Reemplazar todos los valores de ejemplo con los valores reales proporcionados por el equipo de AppDynamics.
-- El `<user-exit>` **DEBE ser alfanumérico**. Si contiene caracteres especiales, el broker no podrá cargar el agente y fallará al iniciar.
+- El `<user-exit>` **DEBE ser `wmqi`**. El Controller exige este valor; con "AppDynamics", "AppDynamicsExit" u otros no funciona.
 
 ### Paso 2: Verificar Configuración
 
@@ -212,10 +212,9 @@ ls -la /opt/appdynamics/iib-agent/conf/controller-info.xml
 # Verificar configuración básica
 grep -E "controller-host|controller-port|account-name|account-access-key|application-name|user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
-# Verificar que user-exit es alfanumérico
+# Verificar que user-exit es wmqi
 grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
-# Debe mostrar algo como: <user-exit>AppDynamicsExit</user-exit>
-# NO debe contener caracteres especiales
+# Debe mostrar: <user-exit>wmqi</user-exit>
 ```
 
 ---
@@ -239,14 +238,15 @@ mqsi status <BROKER_NAME>
 
 Hay dos métodos para instalar el user exit, dependiendo de la versión de ACE:
 
+> **📌 Comandos en versiones recientes (ACE 12.0.12.x):** En versiones nuevas de ACE 12, **`mqsichangebroker` está deprecado**. Si al ejecutarlo aparece **BIP8161E** o **BIP8101E** con el mensaje *"The functionality provided by the mqsichangebroker command is now available using the mqsichangeproperties command"*, usar **Opción B** (`mqsichangeproperties`) o el **Método 2** (`node.conf.yaml`).
+
 #### Método 1: Usando mqsichangebroker o mqsichangeproperties
 
-**⚠️ NOTA IMPORTANTE:** En algunas versiones de ACE 12, el comando `mqsichangebroker` está deprecado. Si recibes el error:
-```
-BIP8101E: The functionality provided by the mqsichangebroker command is now available using the mqsichangeproperties command.
-```
+**⚠️ NOTA IMPORTANTE:** En ACE 12.0.12.x y otras versiones recientes, el comando `mqsichangebroker` está deprecado. Si recibes uno de estos errores:
+- **BIP8161E** (común en 12.0.12.x)
+- **BIP8101E**
 
-Debes usar `mqsichangeproperties` en su lugar.
+con el mensaje indicando que la funcionalidad está disponible con `mqsichangeproperties`, debes usar **Opción B** (`mqsichangeproperties`) en su lugar.
 
 ##### Opción A: Usando mqsichangebroker (si está disponible)
 
@@ -256,7 +256,7 @@ mqsichangebroker <BROKER_NAME> -x <INSTALL_DIRECTORY> -e <USER_EXIT_NAME>
 
 **Ejemplo:**
 ```bash
-mqsichangebroker BRKR_PROD -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+mqsichangebroker BRKR_PROD -x /opt/appdynamics/iib-agent -e wmqi
 ```
 
 ##### Opción B: Usando mqsichangeproperties (cuando mqsichangebroker está deprecado)
@@ -271,18 +271,17 @@ mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v <USER_EXIT_NAME>
 **Ejemplo:**
 ```bash
 mqsichangeproperties BRURALBRKQA -n userExitPath -v /opt/appdynamics/iib-agent
-mqsichangeproperties BRURALBRKQA -n activeUserExitList -v AppDynamicsExit
+mqsichangeproperties BRURALBRKQA -n activeUserExitList -v wmqi
 ```
 
 **Parámetros:**
 - `<BROKER_NAME>`: Nombre del broker (ej: `BRKR_PROD` o `BRURALBRKQA`)
 - `<INSTALL_DIRECTORY>`: Directorio donde se extrajo el agente IIB (ej: `/opt/appdynamics/iib-agent`)
-- `<USER_EXIT_NAME>`: Nombre del user exit (debe coincidir exactamente con `<user-exit>` en `controller-info.xml`)
+- `<USER_EXIT_NAME>`: **Debe ser `wmqi`** (requerido por el Controller; mismo valor en controller-info.xml y en el YAML)
 
 **⚠️ IMPORTANTE:**
-- El nombre del user exit debe ser **alfanumérico** y coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
+- El Controller exige **`wmqi`** en `controller-info.xml` y en `node.conf.yaml` (activeUserExitList). Con "AppDynamics", "AppDynamicsExit" u otros no funciona.
 - El directorio de instalación debe ser la ruta completa donde se extrajo el agente
-- Si el nombre del user exit contiene caracteres especiales, el broker no podrá cargarlo
 - Si `mqsichangebroker` muestra error de deprecación, usar `mqsichangeproperties` con los dos comandos mostrados arriba
 
 #### Método 2: Usando node.conf.yaml (ACE 11, ACE 12)
@@ -305,7 +304,7 @@ Agregar o modificar la sección `UserExits`:
 
 ```yaml
 UserExits:
-  activeUserExitList: 'AppDynamicsExit'  # Especificar el nombre del user exit
+  activeUserExitList: 'wmqi'  # Debe ser "wmqi" (requerido por el Controller)
   userExitPath: '/opt/appdynamics/iib-agent'  # Especificar la ruta del agente
 ```
 
@@ -316,14 +315,13 @@ UserExits:
 # ...
 
 UserExits:
-  activeUserExitList: 'AppDynamicsExit'
+  activeUserExitList: 'wmqi'
   userExitPath: '/opt/appdynamics/iib-agent'
 ```
 
 **⚠️ IMPORTANTE:**
-- El `activeUserExitList` debe coincidir exactamente con el valor de `<user-exit>` en `controller-info.xml`
+- El Controller exige **`wmqi`** tanto en `controller-info.xml` como en `activeUserExitList`. Con "AppDynamics" o "AppDynamicsExit" no funciona.
 - El `userExitPath` debe ser la ruta completa donde se extrajo el agente
-- El nombre del user exit debe ser **alfanumérico**
 - Después de editar `node.conf.yaml`, es necesario reiniciar el broker
 
 **Verificar la configuración:**
@@ -460,7 +458,7 @@ mqsireportbroker <BROKER_NAME>
 ls -la <INSTALL_DIRECTORY>
 # Debe contener los archivos del agente
 
-# 3. Verificar que el nombre del user exit es alfanumérico
+# 3. Verificar que el nombre del user exit es wmqi
 grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 # NO debe contener caracteres especiales
 
@@ -476,7 +474,7 @@ grep -i "user.exit\|error" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb
    Si no aparece información del user exit, reinstalarlo.
 
 2. **Verificar nombre del user exit:**
-   - El nombre debe ser alfanumérico
+   - El nombre debe ser wmqi (requerido por el Controller)
    - Debe coincidir exactamente entre `controller-info.xml` y el comando `mqsichangebroker`
 
 3. **Reinstalar el user exit:**
@@ -539,9 +537,9 @@ ERROR: SSL handshake failed
 **Soluciones:**
 
 ```bash
-# 1. Verificar que el nombre del user exit es alfanumérico
+# 1. Verificar que el nombre del user exit es wmqi
 grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
-# Si contiene caracteres especiales, cambiarlo a uno alfanumérico
+# Si tiene otro valor (AppDynamics, AppDynamicsExit), cambiarlo a wmqi
 
 # 2. Verificar la ruta de instalación
 ls -la <INSTALL_DIRECTORY>
@@ -601,7 +599,7 @@ Antes de instrumentar en producción, verificar:
 - [ ] Controller host y port confirmados
 - [ ] Account name y access key obtenidos
 - [ ] Application name y tier name definidos
-- [ ] User exit name definido (alfanumérico)
+- [ ] User exit name definido como **wmqi**
 - [ ] Permisos de red confirmados (firewall)
 
 ### Preparación del Entorno
@@ -612,7 +610,7 @@ Antes de instrumentar en producción, verificar:
 
 ### Configuración
 - [ ] `controller-info.xml` configurado con valores reales
-- [ ] `user-exit` es alfanumérico y coincide en todos los lugares
+- [ ] `user-exit` es **wmqi** en controller-info.xml y en node.conf.yaml (activeUserExitList)
 - [ ] Directorio de logs configurado y con permisos de escritura
 
 ### Instalación
@@ -717,7 +715,7 @@ Para ACE 11 y ACE 12, puedes instrumentar solo integration servers específicos 
    **Agregar o modificar la sección `UserExits`:**
    ```yaml
    UserExits:
-     activeUserExitList: 'AppDynamicsExit'  # Nombre del user exit a activar
+     activeUserExitList: 'wmqi'  # Debe ser wmqi (requerido por el Controller)
      userExitPath: '/opt/appdynamics/iib-agent'  # Ruta del agente
    ```
 

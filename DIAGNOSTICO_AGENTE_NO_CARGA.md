@@ -65,17 +65,17 @@ ls -la /opt/appdynamics/iib-agent/conf/controller-info.xml
 # Verificar configuración básica
 grep -E "controller-host|controller-port|account-name|account-access-key|application-name|user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
-# ⚠️ CRÍTICO: Verificar que user-exit es alfanumérico
+# ⚠️ CRÍTICO: Verificar que user-exit es wmqi
 grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 ```
 
 **Resultado esperado:** 
 - Debe mostrar todas las configuraciones
-- El `user-exit` debe ser alfanumérico (sin caracteres especiales)
+- El `user-exit` debe ser **wmqi** (requerido por el Controller)
 
-**Si el `user-exit` contiene caracteres especiales:**
-- El broker NO puede cargar el agente
-- Cambiar a un nombre alfanumérico
+**Si el `user-exit` no es wmqi (p. ej. "AppDynamics", "AppDynamicsExit"):**
+- El agente NO funciona con otros valores
+- Cambiar a **wmqi** en controller-info.xml y en node.conf.yaml (activeUserExitList)
 
 ---
 
@@ -163,14 +163,17 @@ tail -50 "$LOG_DIR"/*.log 2>/dev/null || echo "⚠️ No hay logs para mostrar"
 
 **Síntoma:** `mqsireportbroker` no muestra información del user exit.
 
-**Solución:** Instalar el user exit:
+**Solución:** Instalar el user exit. En **ACE 12.0.12.x** suele estar deprecado `mqsichangebroker` (error BIP8161E/BIP8101E); en ese caso usar `mqsichangeproperties` o editar `node.conf.yaml` (ver README/INSTRUMENTACION).
 
 ```bash
 # 1. Detener el broker
 mqsi stop <BROKER_NAME>
 
-# 2. Instalar el user exit
-mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+# 2. Instalar el user exit (si sale BIP8161E/BIP8101E, usar los dos comandos siguientes en su lugar)
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e wmqi
+# Alternativa si mqsichangebroker está deprecado:
+# mqsichangeproperties <BROKER_NAME> -n userExitPath -v /opt/appdynamics/iib-agent
+# mqsichangeproperties <BROKER_NAME> -n activeUserExitList -v wmqi
 
 # 3. Verificar instalación
 mqsireportbroker <BROKER_NAME>
@@ -189,14 +192,14 @@ mqsi start <BROKER_NAME>
 # 1. Verificar nombre en controller-info.xml
 grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
-# 2. Si contiene caracteres especiales, cambiarlo a alfanumérico
-# Editar controller-info.xml y cambiar a algo como: AppDynamicsExit
+# 2. Si no es wmqi, cambiarlo a wmqi
+# Editar controller-info.xml y poner: <user-exit>wmqi</user-exit>
 
 # 3. Detener el broker
 mqsi stop <BROKER_NAME>
 
 # 4. Reinstalar con el nombre correcto
-mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e wmqi
 
 # 5. Verificar que coinciden
 USER_EXIT_XML=$(grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml | sed 's/.*<user-exit>\(.*\)<\/user-exit>.*/\1/')
@@ -228,7 +231,7 @@ ls -ld "$INSTALL_DIR"
 
 # 4. Si la ruta es incorrecta, reinstalar con la ruta correcta
 mqsi stop <BROKER_NAME>
-mqsichangebroker <BROKER_NAME> -x "$INSTALL_DIR" -e AppDynamicsExit
+mqsichangebroker <BROKER_NAME> -x "$INSTALL_DIR" -e wmqi
 mqsi start <BROKER_NAME>
 ```
 
@@ -267,7 +270,7 @@ tail -100 <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log
 grep -i "user.exit\|error\|fail" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log | tail -50
 
 # 3. Buscar referencias específicas al user exit
-grep -i "AppDynamicsExit\|appdynamics" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log
+grep -i "wmqi\|appdynamics" <ACE_INSTALL_DIR>/server/<BROKER_NAME>/workspace/.esb/logs/system.log
 ```
 
 **Errores comunes:**
@@ -293,10 +296,10 @@ mqsireportbroker <BROKER_NAME>
 
 # 4. Verificar configuración
 cat /opt/appdynamics/iib-agent/conf/controller-info.xml | grep "user-exit"
-# Asegurar que es alfanumérico
+# Asegurar que es wmqi
 
 # 5. Instalar nuevamente
-mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e AppDynamicsExit
+mqsichangebroker <BROKER_NAME> -x /opt/appdynamics/iib-agent -e wmqi
 
 # 6. Verificar instalación
 mqsireportbroker <BROKER_NAME>
@@ -316,7 +319,7 @@ Antes de reportar el problema, verificar:
 
 - [ ] El directorio del agente existe: `/opt/appdynamics/iib-agent/`
 - [ ] El archivo `controller-info.xml` existe y es legible
-- [ ] El `user-exit` en `controller-info.xml` es **alfanumérico**
+- [ ] El `user-exit` en `controller-info.xml` es **wmqi**
 - [ ] El user exit está instalado (verificado con `mqsireportbroker`)
 - [ ] El nombre del user exit coincide entre `controller-info.xml` y `mqsichangebroker`
 - [ ] El directorio de logs existe y tiene permisos de escritura
@@ -361,7 +364,7 @@ ls -la /opt/appdynamics/iib-agent/
 # 3. Verificar configuración
 grep -E "controller-host|controller-port|user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
-# 4. Verificar que user-exit es alfanumérico
+# 4. Verificar que user-exit es wmqi
 grep "user-exit" /opt/appdynamics/iib-agent/conf/controller-info.xml
 
 # 5. Verificar logs del broker
