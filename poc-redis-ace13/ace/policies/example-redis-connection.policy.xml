@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ejemplo de Redis Connection Policy para ACE 13 (External Redis Global Cache / Redis Request node).
+
+  Crear en el Toolkit:
+    1. Policy Project (ej. RedisPolicies)
+    2. New > Policy > Redis Connection
+    3. Security identity: redis::pocRedisCredential (mqsisetdbparms)
+
+  Este XML es referencia; el Toolkit puede generar namespaces/atributos ligeramente distintos.
+  Ver: scripts/setup-ace-credential.sh
+-->
+<policies>
+  <policy policyType="RedisConnection" policyName="RedisConnectionPoC" policyTemplate="RedisConnection">
+    <redis:connection xmlns:redis="http://www.ibm.com/xmlns/prod/ace/redis">
+      <host>localhost</host>
+      <port>6379</port>
+      <securityIdentity>redis::pocRedisCredential</securityIdentity>
+      <!-- <useTLS>true</useTLS> -->
+    </redis:connection>
+  </policy>
+</policies>

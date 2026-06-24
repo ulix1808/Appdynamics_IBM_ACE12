@@ -19,6 +19,14 @@ Documentación completa para la instrumentación del agente de AppDynamics en IB
 - [INSTRUMENTACION.md](INSTRUMENTACION.md) - Guía detallada paso a paso
 - [DIAGNOSTICO_AGENTE_NO_CARGA.md](DIAGNOSTICO_AGENTE_NO_CARGA.md) - **Diagnóstico si el agente no se carga** (no hay logs ni registro en Controller)
 
+## 🔴 PoC: Redis + IBM ACE 13
+
+Repositorio ampliado con una Proof of Concept para integrar **Redis** con **IBM ACE 13** (Redis Global Cache y Redis Request node).
+
+- **[poc-redis-ace13/README.md](poc-redis-ace13/README.md)** — Visión general de la PoC
+- **[poc-redis-ace13/QUICK_START.md](poc-redis-ace13/QUICK_START.md)** — Levantar Redis y conectar ACE
+- **[poc-redis-ace13/docs/BENEFICIOS_INTEGRACION.md](poc-redis-ace13/docs/BENEFICIOS_INTEGRACION.md)** — Beneficios para equipos de integración
+
 ## 🚀 Inicio Rápido
 
 1. Verificar [Requisitos](#requisitos)
