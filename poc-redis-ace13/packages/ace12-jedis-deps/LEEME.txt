@@ -1,0 +1,23 @@
+Dependencias Java COMPLETAS para Redis + IBM ACE 12 (JavaCompute + Jedis)
+
+IMPORTANTE: El ZIP anterior solo incluia 2 JARs. Jedis 4.4.8 requiere
+dependencias adicionales en runtime; sin ellas ACE puede fallar con
+ClassNotFoundException (gson, json, slf4j).
+
+Archivos incluidos (anadir TODOS al Java Build Path y al BAR):
+  - jedis-4.4.8.jar
+  - commons-pool2-2.12.0.jar
+  - gson-2.10.1.jar
+  - json-20231013.jar
+  - slf4j-api-1.7.36.jar
+
+Verificar integridad tras descargar:
+  shasum -a 256 -c SHA256SUMS.txt
+
+Uso en ACE Toolkit:
+  1. Descomprimir el ZIP (no usar el .zip directamente como libreria)
+  2. Proyecto Java -> Properties -> Java Build Path -> Libraries
+  3. Add External JARs -> seleccionar los 5 .jar
+  4. Incluir los 5 JAR en el BAR al desplegar
+
+Compatible con Java 8 y 11 (ACE 12).
