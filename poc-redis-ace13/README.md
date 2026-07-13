@@ -48,7 +48,7 @@ Guía detallada: [QUICK_START.md](QUICK_START.md)
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Arquitectura Redis + ACE 13 |
 | [docs/BENEFICIOS_INTEGRACION.md](docs/BENEFICIOS_INTEGRACION.md) | Valor para equipos de integración |
 | [docs/ESCENARIOS_POC.md](docs/ESCENARIOS_POC.md) | Casos de prueba y criterios de éxito |
-| [flows/DISENO_FLUJOS.md](flows/DISENO_FLUJOS.md) | Diseño de message flows en Toolkit |
+| [flows/DISENO_FLUJOS.md](flows/DISENO_FLUJOS.md) | **Cómo construir** ambos flujos en Toolkit (paso a paso) |
 
 ## Dos formas de integrar Redis en ACE 13
 

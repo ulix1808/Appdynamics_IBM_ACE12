@@ -90,6 +90,66 @@ shasum -a 256 -c SHA256SUMS.txt
 
 ---
 
+## Cómo saber que el paquete está completo
+
+### 1. Fuente oficial: POM de Maven (Jedis 4.4.8)
+
+Dependencias **compile** (runtime), según  
+https://repo1.maven.org/maven2/redis/clients/jedis/4.4.8/jedis-4.4.8.pom :
+
+| Artefacto | En nuestro ZIP |
+|-----------|----------------|
+| `jedis` | Sí |
+| `commons-pool2` | Sí |
+| `gson` | Sí |
+| `json` | Sí |
+| `slf4j-api` | Sí |
+| `junixsocket`, `jts-core`, `junit`, etc. | **No** — scope `test` en el POM (no hacen falta en ACE) |
+
+No hay más dependencias **compile** en ese POM.
+
+### 2. Prueba automática en este repo
+
+```bash
+# Con Redis local (Docker):
+cd poc-redis-ace13/infra && docker compose up -d
+cd ../packages/verify-jedis-deps && ./verify-jedis-deps.sh
+```
+
+El script:
+
+1. Comprueba que existen los 5 JAR.
+2. Valida `SHA256SUMS.txt`.
+3. **Compila** `JedisSmokeTest.java` usando **solo** esos 5 JAR (si falta alguno → `ClassNotFoundException` al compilar o ejecutar).
+4. Ejecuta `PING`, `SET`, `GET` contra Redis.
+
+Salida esperada:
+
+```
+PASS: Paquete completo para operaciones basicas Jedis (PING, SET, GET).
+```
+
+### 3. Aviso SLF4J (normal)
+
+Puede aparecer:
+
+```
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder"
+```
+
+No es error: `slf4j-api` está incluido; el **binding** de log es opcional. En ACE el runtime suele resolver logging por su cuenta. No hace falta añadir `slf4j-simple` para cache básico.
+
+### 4. Límites de la prueba
+
+| Cubierto por el smoke test | No cubierto (requeriría features extra) |
+|----------------------------|----------------------------------------|
+| PING, GET, SET, DEL, pool | RedisJSON / RediSearch avanzado |
+| Classpath completo compile | UNIX socket (`junixsocket` — solo tests IBM) |
+
+Para **JavaCompute + cache** en ACE 12 (get/set, TTL, idempotencia), el paquete de 5 JARs es el conjunto correcto según Maven.
+
+---
+
 ## Mensaje sugerido para Diego / equipo
 
 > El ZIP anterior no estaba corrupto, pero era **incompleto**: faltaban 3 dependencias de Jedis 4.4.8. Les comparto `ace12-jedis-deps.zip` con **5 JARs** y archivo `SHA256SUMS.txt` para validar la descarga. Deben **descomprimir** y agregar **todos** los JAR al Java Build Path y al BAR.

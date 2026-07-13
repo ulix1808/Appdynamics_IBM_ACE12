@@ -88,12 +88,13 @@ mqsireportdbparms -n redis::pocRedisCredential
 
 ### 2.4 Integration project y flujos
 
-Seguir [flows/DISENO_FLUJOS.md](../flows/DISENO_FLUJOS.md):
+Guía **paso a paso en el Toolkit** (crear nodos, propiedades, ESQL/Java):  
+**[flows/DISENO_FLUJOS.md](flows/DISENO_FLUJOS.md)**
 
-| Prioridad | Escenario | ACE mínimo |
-|-----------|-----------|------------|
-| 1 | Redis Request — lookup cliente/catálogo | 13.0.5 |
-| 2 | Redis Global Cache — JavaCompute / Mapping | 13.0.3 |
+| Prioridad | Flujo | ACE mínimo |
+|-----------|-------|------------|
+| 1 | `RedisCustomerLookup` — Redis Request | 13.0.5 |
+| 2 | `RedisGlobalCacheLookup` — Global Map + JavaCompute | 13.0.3 |
 
 ### 2.5 Desplegar
 
